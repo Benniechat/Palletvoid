@@ -66,6 +66,7 @@ export function renderLayout({ title, content, user, req, activeNav = '', extraH
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
+      display: none !important;
     }
   </style>
   
