@@ -24,11 +24,19 @@ const app = express();
 app.set('trust proxy', 1); // Crucial for cloud platforms (Render, Railway) behind SSL reverse proxies
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const ALT_PORT = PORT === 3000 ? 5000 : 3000;
+
+// Health check endpoint for Render/Railway/uptime monitors
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 // Ensure database tables and baseline accounts/catalog exist on startup
-initDatabase();
-seedDatabase(db);
+try {
+  initDatabase();
+  seedDatabase(db);
+} catch (dbErr) {
+  console.error('[Startup DB Notice]:', dbErr);
+}
 
 // Security Middleware
 app.use(helmet({
@@ -169,29 +177,17 @@ app.use((err, req, res, next) => {
   }));
 });
 
-const primaryServer = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n======================================================`);
   console.log(`  PALLETVOID PREMIUM E-COMMERCE PLATFORM`);
-  console.log(`  Live URL:      http://localhost:${PORT}`);
-  if (ALT_PORT && ALT_PORT !== PORT) {
-    console.log(`  Alternate URL: http://localhost:${ALT_PORT}`);
-  }
+  console.log(`  Live URL:      http://0.0.0.0:${PORT}`);
   console.log(`  Environment:   ${process.env.NODE_ENV || 'development'}`);
   console.log(`  Tagline: "We Think Green, We Think Class, And We Think Creative."`);
   console.log(`======================================================\n`);
 });
 
-if (ALT_PORT && ALT_PORT !== PORT) {
-  try {
-    const secondaryServer = app.listen(ALT_PORT, () => {
-      // Alternate port bound successfully
-    });
-    secondaryServer.on('error', () => {
-      // Ignore if alt port is in use by another tool
-    });
-  } catch (e) {
-    // Port in use, continue
-  }
-}
+server.on('error', (err) => {
+  console.error('[Palletvoid Server Fatal Error]:', err);
+});
 
 export default app;
