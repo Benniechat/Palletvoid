@@ -260,6 +260,14 @@ test('9. Password Security & Flexibility: Users, Admins, and Managers can change
     const updatedMgr = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(manager.id);
     assert.ok(bcrypt.compareSync(managerPass, updatedMgr.password_hash), 'Manager password must verify');
   }
+
+  // Restore default passwords after test so live server credentials remain intact
+  const adminDefaultHash = bcrypt.hashSync('PalletvoidAdmin2026!', 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(adminDefaultHash, admin.id);
+  if (manager) {
+    const managerDefaultHash = bcrypt.hashSync('Manager2026!', 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(managerDefaultHash, manager.id);
+  }
 });
 
 
