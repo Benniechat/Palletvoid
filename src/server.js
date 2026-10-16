@@ -15,16 +15,20 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { db, initDatabase } from './database.js';
+import { seedDatabase } from '../database/seed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1); // Crucial for cloud platforms (Render, Railway) behind SSL reverse proxies
+
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const ALT_PORT = PORT === 3000 ? 5000 : 3000;
 
-// Ensure database tables exist
+// Ensure database tables and baseline accounts/catalog exist on startup
 initDatabase();
+seedDatabase(db);
 
 // Security Middleware
 app.use(helmet({
@@ -51,7 +55,8 @@ app.use((req, res, next) => {
       httpOnly: true,
       signed: true,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: 'lax'
+      sameSite: 'lax',
+      path: '/'
     });
   }
   req.sessionId = sessionId;
@@ -64,7 +69,7 @@ app.use((req, res, next) => {
       if (user) {
         req.user = user;
       } else {
-        res.clearCookie('pv_auth_user');
+        res.clearCookie('pv_auth_user', { path: '/' });
       }
     } catch (err) {
       console.error('[Session Error]', err);
@@ -76,7 +81,7 @@ app.use((req, res, next) => {
   if (flashMsg) {
     try {
       res.locals.flash = JSON.parse(flashMsg);
-      res.clearCookie('pv_flash');
+      res.clearCookie('pv_flash', { path: '/' });
     } catch {
       res.locals.flash = null;
     }
@@ -101,7 +106,8 @@ export function setFlash(res, type, message) {
     httpOnly: true,
     signed: true,
     maxAge: 60 * 1000,
-    sameSite: 'lax'
+    sameSite: 'lax',
+    path: '/'
   });
 }
 

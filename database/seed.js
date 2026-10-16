@@ -1,53 +1,64 @@
 import bcrypt from 'bcryptjs';
-import { db, initDatabase } from '../src/database.js';
+import { db as defaultDb, initDatabase } from '../src/database.js';
 
-console.log('[Seed] Initializing database schema...');
-initDatabase();
+export function seedDatabase(targetDb = defaultDb) {
+  const db = targetDb;
+  console.log('[Seed] Verifying baseline accounts, categories, and products...');
 
-console.log('[Seed] Seeding data...');
+  // 1. Seed Roles and Superadmin
+  const adminEmail = 'admin@palletvoid.com';
+  const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
 
-// 1. Seed Roles and Superadmin
-const adminEmail = 'admin@palletvoid.com';
-const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+  if (!existingAdmin) {
+    const hash = bcrypt.hashSync('PalletvoidAdmin2026!', 10);
+    db.prepare(`
+      INSERT INTO users (email, password_hash, full_name, phone, role, is_active, email_verified)
+      VALUES (?, ?, ?, ?, ?, 1, 1)
+    `).run(adminEmail, hash, 'Palletvoid Super Administrator', '+234 802 472 0412', 'superadmin');
+    console.log('[Seed] Superadmin created: admin@palletvoid.com / PalletvoidAdmin2026!');
+  } else if (process.env.RESET_DEFAULT_PASSWORDS === 'true') {
+    const hash = bcrypt.hashSync('PalletvoidAdmin2026!', 10);
+    db.prepare('UPDATE users SET password_hash = ?, is_active = 1 WHERE email = ?').run(hash, adminEmail);
+    console.log('[Seed] Superadmin password reset to default: PalletvoidAdmin2026!');
+  }
 
-if (!existingAdmin) {
-  const hash = bcrypt.hashSync('PalletvoidAdmin2026!', 10);
-  db.prepare(`
-    INSERT INTO users (email, password_hash, full_name, phone, role, is_active, email_verified)
-    VALUES (?, ?, ?, ?, ?, 1, 1)
-  `).run(adminEmail, hash, 'Palletvoid Super Administrator', '+234 802 472 0412', 'superadmin');
-  console.log('[Seed] Superadmin created: admin@palletvoid.com / PalletvoidAdmin2026!');
-}
+  // Seed Store Manager
+  const managerEmail = 'manager@palletvoid.com';
+  const existingManager = db.prepare('SELECT id FROM users WHERE email = ?').get(managerEmail);
+  if (!existingManager) {
+    const hash = bcrypt.hashSync('Manager2026!', 10);
+    db.prepare(`
+      INSERT INTO users (email, password_hash, full_name, phone, role, is_active, email_verified)
+      VALUES (?, ?, ?, ?, ?, 1, 1)
+    `).run(managerEmail, hash, 'Operations Store Manager', '+234 802 472 0412', 'store_manager');
+    console.log('[Seed] Store Manager created: manager@palletvoid.com / Manager2026!');
+  } else if (process.env.RESET_DEFAULT_PASSWORDS === 'true') {
+    const hash = bcrypt.hashSync('Manager2026!', 10);
+    db.prepare('UPDATE users SET password_hash = ?, is_active = 1 WHERE email = ?').run(hash, managerEmail);
+    console.log('[Seed] Store Manager password reset to default: Manager2026!');
+  }
 
-// Seed Store Manager
-const managerEmail = 'manager@palletvoid.com';
-const existingManager = db.prepare('SELECT id FROM users WHERE email = ?').get(managerEmail);
-if (!existingManager) {
-  const hash = bcrypt.hashSync('Manager2026!', 10);
-  db.prepare(`
-    INSERT INTO users (email, password_hash, full_name, phone, role, is_active, email_verified)
-    VALUES (?, ?, ?, ?, ?, 1, 1)
-  `).run(managerEmail, hash, 'Operations Store Manager', '+234 802 472 0412', 'store_manager');
-  console.log('[Seed] Store Manager created: manager@palletvoid.com / Manager2026!');
-}
-
-// Seed Sample Customer
-const customerEmail = 'customer@example.com';
-const existingCustomer = db.prepare('SELECT id FROM users WHERE email = ?').get(customerEmail);
-if (!existingCustomer) {
-  const hash = bcrypt.hashSync('Customer2026!', 10);
-  const result = db.prepare(`
-    INSERT INTO users (email, password_hash, full_name, phone, role, is_active, email_verified)
-    VALUES (?, ?, ?, ?, ?, 1, 1)
-  `).run(customerEmail, hash, 'Adeyemi Johnson', '+234 803 123 4567', 'customer');
-  
-  // Seed Customer Address
-  db.prepare(`
-    INSERT INTO customer_addresses (user_id, label, recipient_name, phone, street_address, city, state, is_default)
-    VALUES (?, 'Home', 'Adeyemi Johnson', '+234 803 123 4567', '14 Admiralty Way, Lekki Phase 1', 'Lekki', 'Lagos', 1)
-  `).run(result.lastInsertRowid);
-  console.log('[Seed] Customer account created: customer@example.com / Customer2026!');
-}
+  // Seed Sample Customer
+  const customerEmail = 'customer@example.com';
+  const existingCustomer = db.prepare('SELECT id FROM users WHERE email = ?').get(customerEmail);
+  if (!existingCustomer) {
+    const hash = bcrypt.hashSync('Customer2026!', 10);
+    const result = db.prepare(`
+      INSERT INTO users (email, password_hash, full_name, phone, role, is_active, email_verified)
+      VALUES (?, ?, ?, ?, ?, 1, 1)
+    `).run(customerEmail, hash, 'Adeyemi Johnson', '+234 803 123 4567', 'customer');
+    
+    // Seed Customer Address
+    db.prepare(`
+      INSERT INTO customer_addresses (user_id, label, recipient_name, phone, street_address, city, state, is_default)
+      VALUES (?, 'Home', 'Adeyemi Johnson', '+234 803 123 4567', '14 Admiralty Way, Lekki Phase 1', 'Lekki', 'Lagos', 1)
+    `).run(result.lastInsertRowid);
+    console.log('[Seed] Customer account created: customer@example.com / Customer2026!');
+  } else if (process.env.RESET_DEFAULT_PASSWORDS === 'true') {
+    const hash = bcrypt.hashSync('Customer2026!', 10);
+    db.prepare('UPDATE users SET password_hash = ?, is_active = 1 WHERE email = ?').run(hash, customerEmail);
+    console.log('[Seed] Customer password reset to default: Customer2026!');
+  }
 
 // 2. Seed Categories with authentic imagery
 const categories = [
@@ -653,6 +664,13 @@ const insertSetting = db.prepare(`
 initialSettings.forEach(s => {
   insertSetting.run(s.key, s.value, s.desc);
 });
-console.log('[Seed] Initial store settings verified.');
+  console.log('[Seed] Database initialization and seed completed successfully.');
+}
 
-console.log('[Seed] Database initialization and seed completed successfully.');
+// Auto-run if executed directly via node database/seed.js
+const isDirectRun = process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('database/seed.js');
+if (isDirectRun) {
+  console.log('[Seed] Running standalone seed...');
+  initDatabase();
+  seedDatabase();
+}

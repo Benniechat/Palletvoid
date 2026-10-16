@@ -61,10 +61,11 @@ router.get('/login', (req, res) => {
 
 // Process Login
 router.post('/login', (req, res) => {
-  const { email, password } = req.body;
+  const email = (req.body.email || '').trim().toLowerCase();
+  const password = req.body.password || '';
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.trim().toLowerCase());
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
       setFlash(res, 'error', 'Invalid email address or password.');
       return res.redirect('/auth/login');
@@ -75,12 +76,13 @@ router.post('/login', (req, res) => {
       return res.redirect('/auth/login');
     }
 
-    // Set signed auth cookie
-    res.cookie('pv_auth_user', user.id, {
+    // Set signed auth cookie explicitly on root path '/'
+    res.cookie('pv_auth_user', String(user.id), {
       httpOnly: true,
       signed: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
-      sameSite: 'lax'
+      sameSite: 'lax',
+      path: '/'
     });
 
     // Merge Guest Cart into User Cart
@@ -214,12 +216,13 @@ router.post('/register', (req, res) => {
       `).run(newUserId, fullName.trim(), phone.trim(), address.trim(), city.trim(), state || 'Lagos');
     }
 
-    // Set signed auth cookie
-    res.cookie('pv_auth_user', newUserId, {
+    // Set signed auth cookie on root path '/'
+    res.cookie('pv_auth_user', String(newUserId), {
       httpOnly: true,
       signed: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
-      sameSite: 'lax'
+      sameSite: 'lax',
+      path: '/'
     });
 
     // Merge cart
@@ -236,7 +239,7 @@ router.post('/register', (req, res) => {
 
 // Logout
 router.get('/logout', (req, res) => {
-  res.clearCookie('pv_auth_user');
+  res.clearCookie('pv_auth_user', { path: '/' });
   setFlash(res, 'success', 'You have been signed out safely.');
   res.redirect('/auth/login');
 });
