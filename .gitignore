@@ -5,3 +5,4 @@ database/palletvoid.db-shm
 database/palletvoid.db-wal
 .DS_Store
 Thumbs.db
+scratch/

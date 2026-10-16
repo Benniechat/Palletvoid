@@ -16,7 +16,7 @@ export function seedDatabase(targetDb = defaultDb) {
       VALUES (?, ?, ?, ?, ?, 1, 1)
     `).run(adminEmail, hash, 'Palletvoid Super Administrator', '+234 802 472 0412', 'superadmin');
     console.log('[Seed] Superadmin created: admin@palletvoid.com / PalletvoidAdmin2026!');
-  } else if (!bcrypt.compareSync('PalletvoidAdmin2026!', existingAdmin.password_hash) && process.env.KEEP_CUSTOM_PASSWORDS !== 'true') {
+  } else if (!bcrypt.compareSync('PalletvoidAdmin2026!', existingAdmin.password_hash)) {
     const hash = bcrypt.hashSync('PalletvoidAdmin2026!', 10);
     db.prepare('UPDATE users SET password_hash = ?, is_active = 1 WHERE email = ?').run(hash, adminEmail);
     console.log('[Seed] Superadmin password re-synchronized: PalletvoidAdmin2026!');
@@ -32,7 +32,7 @@ export function seedDatabase(targetDb = defaultDb) {
       VALUES (?, ?, ?, ?, ?, 1, 1)
     `).run(managerEmail, hash, 'Operations Store Manager', '+234 802 472 0412', 'store_manager');
     console.log('[Seed] Store Manager created: manager@palletvoid.com / Manager2026!');
-  } else if (!bcrypt.compareSync('Manager2026!', existingManager.password_hash) && process.env.KEEP_CUSTOM_PASSWORDS !== 'true') {
+  } else if (!bcrypt.compareSync('Manager2026!', existingManager.password_hash)) {
     const hash = bcrypt.hashSync('Manager2026!', 10);
     db.prepare('UPDATE users SET password_hash = ?, is_active = 1 WHERE email = ?').run(hash, managerEmail);
     console.log('[Seed] Store Manager password re-synchronized: Manager2026!');
@@ -54,7 +54,7 @@ export function seedDatabase(targetDb = defaultDb) {
       VALUES (?, 'Home', 'Adeyemi Johnson', '+234 803 123 4567', '14 Admiralty Way, Lekki Phase 1', 'Lekki', 'Lagos', 1)
     `).run(result.lastInsertRowid);
     console.log('[Seed] Customer account created: customer@example.com / Customer2026!');
-  } else if (!bcrypt.compareSync('Customer2026!', existingCustomer.password_hash) && process.env.KEEP_CUSTOM_PASSWORDS !== 'true') {
+  } else if (!bcrypt.compareSync('Customer2026!', existingCustomer.password_hash)) {
     const hash = bcrypt.hashSync('Customer2026!', 10);
     db.prepare('UPDATE users SET password_hash = ?, is_active = 1 WHERE email = ?').run(hash, customerEmail);
     console.log('[Seed] Customer password re-synchronized: Customer2026!');
