@@ -17,9 +17,15 @@ if (!fs.existsSync(dbDir)) {
 
 export const db = new Database(dbPath);
 
-// Enable WAL mode for high concurrency and foreign keys
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Enable WAL mode with fallback for cloud filesystems
+try {
+  db.pragma('journal_mode = WAL');
+} catch (e) {
+  try { db.pragma('journal_mode = DELETE'); } catch (_) {}
+}
+try {
+  db.pragma('foreign_keys = ON');
+} catch (_) {}
 
 export function initDatabase() {
   if (fs.existsSync(schemaPath)) {
