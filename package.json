@@ -5,14 +5,15 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "build": "node database/seed.js",
+    "postinstall": "npm rebuild better-sqlite3",
+    "build": "npm rebuild better-sqlite3 && node database/seed.js",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "seed": "node database/seed.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "keywords": [
     "palletvoid",
