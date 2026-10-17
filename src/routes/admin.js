@@ -12,6 +12,7 @@ import { db } from '../database.js';
 import { markOrderAsPaid, restoreInventory } from '../services/orderService.js';
 import { renderLayout, formatNaira } from '../views/layout.js';
 import { setFlash } from '../server.js';
+import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -566,8 +567,9 @@ router.get('/products', (req, res) => {
           <h4 style="margin-top: 0; margin-bottom: 12px; font-size: 1.05rem;">Product Images &amp; Multi-Photo Gallery</h4>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
             <div class="pv-form-group" style="margin-bottom: 0;">
-              <label class="pv-form-label">Primary Cover Photo (URL or Local Path)</label>
-              <input type="text" name="primary_image" class="pv-input" placeholder="e.g. /hero.jpg or https://...">
+              <label class="pv-form-label">Primary Cover Photo (Google Drive link, URL or Local Path)</label>
+              <input type="text" name="primary_image" class="pv-input" placeholder="e.g. drive.google.com/file/d/... or /hero.jpg">
+              <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Google Drive supported! Set sharing to "Anyone with the link can view".</small>
             </div>
             <div class="pv-form-group" style="margin-bottom: 0;">
               <label class="pv-form-label">Or Upload Primary Cover Photo</label>
@@ -583,8 +585,9 @@ router.get('/products', (req, res) => {
                 <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Select multiple photos to create a swipeable product gallery</small>
               </div>
               <div class="pv-form-group" style="margin-bottom: 0;">
-                <label class="pv-form-label">Or Paste Multiple Image URLs (one per line)</label>
-                <textarea name="additional_image_urls" class="pv-textarea" rows="2" placeholder="https://...&#10;https://..."></textarea>
+                <label class="pv-form-label">Or Paste Multiple Image URLs (Google Drive links or URLs, one per line)</label>
+                <textarea name="additional_image_urls" class="pv-textarea" rows="2" placeholder="https://drive.google.com/file/d/...&#10;https://..."></textarea>
+                <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Supports Google Drive links, Unsplash, or web image URLs.</small>
               </div>
             </div>
           </div>
@@ -652,7 +655,7 @@ router.get('/products', (req, res) => {
             return `
             <tr style="border-bottom: 1px solid var(--pv-border); vertical-align: middle;">
               <td style="padding: 12px 0;">
-                <img src="${p.primary_image || '/images/products/plastic-pallet-main.webp'}" alt="${p.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--pv-border);" onerror="this.src='/hero.jpg'">
+                <img src="${normalizeImageUrl(p.primary_image) || '/images/products/plastic-pallet-main.webp'}" alt="${p.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--pv-border);" onerror="this.src='/hero.jpg'">
               </td>
               <td style="padding: 12px 10px;">
                 <div style="font-family: monospace; font-size: 0.8rem; color: var(--pv-text-muted);">${p.sku}</div>
@@ -794,8 +797,8 @@ router.get('/products/:id/edit', (req, res) => {
           <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 20px; align-items: flex-start;">
             <div class="pv-form-group" style="margin-bottom: 0;">
               <label class="pv-form-label">Primary Image URL or Local Path</label>
-              <input type="text" name="primary_image" id="product_primary_image_input" class="pv-input" value="${product.primary_image || ''}" placeholder="e.g. /hero.jpg or image URL" oninput="updateProductPreview(this.value)">
-              <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Shown as the main card image across the storefront</small>
+              <input type="text" name="primary_image" id="product_primary_image_input" class="pv-input" value="${product.primary_image || ''}" placeholder="e.g. drive.google.com/file/d/... or /hero.jpg" oninput="updateProductPreview(this.value)">
+              <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Google Drive supported! Set sharing to "Anyone with the link can view".</small>
             </div>
             <div class="pv-form-group" style="margin-bottom: 0;">
               <label class="pv-form-label">Or Upload New Cover Photo</label>
@@ -805,14 +808,26 @@ router.get('/products/:id/edit', (req, res) => {
             <div>
               <label class="pv-form-label">Live Preview</label>
               <div id="product_preview_wrap" style="width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 2px solid var(--pv-border); background: #FFFFFF; display: flex; align-items: center; justify-content: center;">
-                <img id="product_preview_img" src="${product.primary_image || '/images/products/plastic-pallet-main.webp'}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/hero.jpg'">
+                <img id="product_preview_img" src="${normalizeImageUrl(product.primary_image) || '/images/products/plastic-pallet-main.webp'}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/hero.jpg'">
               </div>
             </div>
           </div>
           <script>
+            function convertGoogleDriveUrl(url) {
+              if (!url) return '';
+              var str = url.trim();
+              var match = str.match(/(?:drive|docs)\.google\.com\/(?:file(?:\/u\/\d+)?\/d|open|uc)\/([a-zA-Z0-9_-]+)/i) ||
+                          str.match(/(?:drive|docs)\.google\.com\/file(?:\/u\/\d+)?\/d\/([a-zA-Z0-9_-]+)/i) ||
+                          str.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/i) ||
+                          str.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+              if (match && match[1]) {
+                return 'https://lh3.googleusercontent.com/d/' + match[1];
+              }
+              return str;
+            }
             function updateProductPreview(url) {
               var img = document.getElementById('product_preview_img');
-              if (img) img.src = url.trim() || '/hero.jpg';
+              if (img) img.src = convertGoogleDriveUrl(url) || '/hero.jpg';
             }
           </script>
         </div>
@@ -830,7 +845,7 @@ router.get('/products/:id/edit', (req, res) => {
             <div class="pv-admin-gallery-grid" style="margin-bottom: 20px;">
               ${galleryImages.map((gImg) => `
                 <div class="pv-admin-gallery-item">
-                  <img src="${gImg.image_url}" alt="Gallery photo" onerror="this.src='/hero.jpg'">
+                  <img src="${normalizeImageUrl(gImg.image_url)}" alt="Gallery photo" onerror="this.src='/hero.jpg'">
                   <div class="pv-admin-gallery-actions">
                     <button type="submit" formaction="/admin/products/${product.id}/images/${gImg.id}/set-primary" formmethod="POST" class="pv-btn pv-btn-outline pv-btn-sm" style="padding: 2px 6px; font-size: 0.72rem;" title="Make this image the main product cover">
                       Make Cover
@@ -854,8 +869,9 @@ router.get('/products/:id/edit', (req, res) => {
                 <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Hold Ctrl or shift-select to upload multiple photos at once</small>
               </div>
               <div class="pv-form-group" style="margin-bottom: 0;">
-                <label class="pv-form-label"><strong>Or Paste Multiple Image URLs</strong> (one per line)</label>
-                <textarea name="additional_image_urls" class="pv-textarea" rows="2" placeholder="https://...&#10;https://..."></textarea>
+                <label class="pv-form-label"><strong>Or Paste Multiple Image URLs</strong> (Google Drive links or URLs, one per line)</label>
+                <textarea name="additional_image_urls" class="pv-textarea" rows="2" placeholder="https://drive.google.com/file/d/...&#10;https://..."></textarea>
+                <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Supports Google Drive share links, Unsplash, or web image URLs.</small>
               </div>
             </div>
           </div>
@@ -941,7 +957,7 @@ router.post('/products/:id/edit', upload.fields([
   } = req.body;
 
   try {
-    let finalPrimaryImage = primary_image ? primary_image.trim() : null;
+    let finalPrimaryImage = primary_image ? normalizeImageUrl(primary_image) : null;
     if (req.files && req.files.primary_image_file && req.files.primary_image_file[0]) {
       finalPrimaryImage = `/uploads/${req.files.primary_image_file[0].filename}`;
     }
@@ -1002,7 +1018,7 @@ router.post('/products/:id/edit', upload.fields([
 
     // 2. Process pasted additional image URLs
     if (additional_image_urls && typeof additional_image_urls === 'string') {
-      const urls = additional_image_urls.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
+      const urls = additional_image_urls.split(/[\r\n,]+/).map(u => normalizeImageUrl(u)).filter(Boolean);
       if (urls.length > 0) {
         const insertImg = db.prepare(`
           INSERT INTO product_images (product_id, image_url, alt_text, sort_order)
@@ -1104,7 +1120,7 @@ router.post('/products/create', upload.fields([
   } = req.body;
 
   try {
-    let finalPrimaryImage = primary_image ? primary_image.trim() : null;
+    let finalPrimaryImage = primary_image ? normalizeImageUrl(primary_image) : null;
     if (req.files && req.files.primary_image_file && req.files.primary_image_file[0]) {
       finalPrimaryImage = `/uploads/${req.files.primary_image_file[0].filename}`;
     }
@@ -1147,7 +1163,7 @@ router.post('/products/create', upload.fields([
 
     // 2. Process pasted additional image URLs
     if (additional_image_urls && typeof additional_image_urls === 'string') {
-      const urls = additional_image_urls.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
+      const urls = additional_image_urls.split(/[\r\n,]+/).map(u => normalizeImageUrl(u)).filter(Boolean);
       if (urls.length > 0) {
         const insertImg = db.prepare(`
           INSERT INTO product_images (product_id, image_url, alt_text, sort_order)
@@ -1239,9 +1255,9 @@ router.get('/categories', (req, res) => {
 
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
           <div class="pv-form-group">
-            <label class="pv-form-label">Cover Image URL or Local Path</label>
-            <input type="text" name="image_url" class="pv-input" placeholder="e.g. /hero.jpg or https://... image URL">
-            <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Shown on homepage Curated Collections and category landing pages</small>
+            <label class="pv-form-label">Cover Image (Google Drive link, URL, or Local Path)</label>
+            <input type="text" name="image_url" class="pv-input" placeholder="e.g. drive.google.com/file/d/... or /hero.jpg">
+            <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Google Drive supported! Set sharing to "Anyone with the link can view". Shown on homepage and category cards.</small>
           </div>
           <div class="pv-form-group">
             <label class="pv-form-label">Visibility</label>
@@ -1287,7 +1303,7 @@ router.get('/categories', (req, res) => {
             <tr style="border-bottom: 1px solid var(--pv-border); vertical-align: middle;">
               <td style="padding: 14px 8px 14px 0;">
                 ${c.image_url ? `
-                  <img src="${c.image_url}" alt="${c.name}" style="width: 65px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--pv-border);" onerror="this.outerHTML='<div style=\\'width:65px;height:50px;background:#EFECE6;display:flex;align-items:center;justify-content:center;font-size:1.3rem;border-radius:4px;\\'>🪵</div>'">
+                  <img src="${normalizeImageUrl(c.image_url)}" alt="${c.name}" style="width: 65px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--pv-border);" onerror="this.outerHTML='<div style=\\'width:65px;height:50px;background:#EFECE6;display:flex;align-items:center;justify-content:center;font-size:1.3rem;border-radius:4px;\\'>🪵</div>'">
                 ` : `
                   <div style="width: 65px; height: 50px; background: #EFECE6; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border-radius: 4px;">🪵</div>
                 `}
@@ -1349,7 +1365,7 @@ router.post('/categories/create', (req, res) => {
       slug,
       type || 'furniture',
       description ? description.trim() : null,
-      image_url ? image_url.trim() : null,
+      image_url ? normalizeImageUrl(image_url) : null,
       sortOrder,
       isActive
     );
@@ -1423,17 +1439,17 @@ router.get('/categories/:id/edit', (req, res) => {
         <!-- Cover Image with Live Preview -->
         <div style="background: #F8F6F0; padding: 22px; border-radius: var(--pv-radius); border: 1px solid var(--pv-border); margin-bottom: 22px;">
           <div class="pv-form-group" style="margin-bottom: 12px;">
-            <label class="pv-form-label">Category Cover Image URL or Local Path</label>
-            <input type="text" name="image_url" id="category_image_input" class="pv-input" value="${category.image_url || ''}" placeholder="e.g. /images/products/plastic-pallet-main.webp or https://..." oninput="updateCategoryPreview(this.value)">
+            <label class="pv-form-label">Category Cover Image (Google Drive link, URL, or Local Path)</label>
+            <input type="text" name="image_url" id="category_image_input" class="pv-input" value="${category.image_url || ''}" placeholder="e.g. drive.google.com/file/d/... or /hero.jpg" oninput="updateCategoryPreview(this.value)">
             <small style="color: var(--pv-text-muted); font-size: 0.78rem; display: block; margin-top: 4px;">
-              Supports local paths (e.g., <code>/hero.jpg</code>, <code>/images/products/...</code>) or external image URLs.
+              Supports Google Drive links (ensure sharing is set to "Anyone with the link can view"), local paths, or web URLs.
             </small>
           </div>
 
           <div style="margin-top: 15px; display: flex; align-items: center; gap: 18px;">
             <div id="category_preview_wrap" style="width: 120px; height: 90px; border-radius: 6px; overflow: hidden; border: 2px solid var(--pv-border); background: #FFFFFF; display: flex; align-items: center; justify-content: center;">
               ${category.image_url ? `
-                <img id="category_preview_img" src="${category.image_url}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; document.getElementById('category_preview_fallback').style.display='flex';">
+                <img id="category_preview_img" src="${normalizeImageUrl(category.image_url)}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; document.getElementById('category_preview_fallback').style.display='flex';">
                 <div id="category_preview_fallback" style="display: none; font-size: 1.5rem;">🪵</div>
               ` : `
                 <div id="category_preview_fallback" style="font-size: 1.5rem;">🪵</div>
@@ -1447,13 +1463,26 @@ router.get('/categories/:id/edit', (req, res) => {
         </div>
 
         <script>
+          function convertGoogleDriveUrl(url) {
+            if (!url) return '';
+            var str = url.trim();
+            var match = str.match(/(?:drive|docs)\.google\.com\/(?:file(?:\/u\/\d+)?\/d|open|uc)\/([a-zA-Z0-9_-]+)/i) ||
+                        str.match(/(?:drive|docs)\.google\.com\/file(?:\/u\/\d+)?\/d\/([a-zA-Z0-9_-]+)/i) ||
+                        str.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/i) ||
+                        str.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+            if (match && match[1]) {
+              return 'https://lh3.googleusercontent.com/d/' + match[1];
+            }
+            return str;
+          }
           function updateCategoryPreview(url) {
             var wrap = document.getElementById('category_preview_wrap');
             if (!url || !url.trim()) {
               wrap.innerHTML = '<div style="font-size: 1.5rem;">🪵</div>';
               return;
             }
-            wrap.innerHTML = '<img src="' + url.trim() + '" alt="Preview" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML=\\'<div style=\\"font-size:1.5rem;\\">🪵</div>\\'">';
+            var directUrl = convertGoogleDriveUrl(url);
+            wrap.innerHTML = '<img src="' + directUrl + '" alt="Preview" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML=\\'<div style=\\"font-size:1.5rem;\\">🪵</div>\\'">';
           }
         </script>
 
@@ -1503,7 +1532,7 @@ router.post('/categories/:id/edit', (req, res) => {
       cleanSlug,
       type || 'furniture',
       description ? description.trim() : null,
-      image_url ? image_url.trim() : null,
+      image_url ? normalizeImageUrl(image_url) : null,
       sortOrder,
       isActive,
       categoryId

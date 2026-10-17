@@ -6,6 +6,7 @@ import express from 'express';
 import { db } from '../database.js';
 import { renderLayout, formatNaira } from '../views/layout.js';
 import { getGoogleReviews } from '../services/googleReviewsService.js';
+import { normalizeImageUrl } from '../utils/imageUrl.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ function getProductSvg(name, catSlug) {
 
 // Helper: returns real product image if set, else SVG placeholder
 function getProductImg(primaryImage, name, catSlug) {
-  if (primaryImage && primaryImage.trim() !== '') return primaryImage;
+  if (primaryImage && primaryImage.trim() !== '') return normalizeImageUrl(primaryImage);
   return getProductSvg(name, catSlug);
 }
 
@@ -149,7 +150,7 @@ router.get('/', (req, res) => {
             <a href="/category/${c.slug}" class="pv-cat-card">
               ${c.image_url ? `
                 <div class="pv-cat-media">
-                  <img src="${c.image_url}" alt="${c.name}" class="pv-cat-img" loading="lazy" onerror="this.parentElement.outerHTML='<div class=\\'pv-cat-icon\\'>🪵</div>'">
+                  <img src="${normalizeImageUrl(c.image_url)}" alt="${c.name}" class="pv-cat-img" loading="lazy" onerror="this.parentElement.outerHTML='<div class=\\'pv-cat-icon\\'>🪵</div>'">
                 </div>
               ` : `
                 <div class="pv-cat-icon">🪵</div>
@@ -598,7 +599,7 @@ router.get('/category/:slug', (req, res) => {
             <a href="/category/${c.slug}" class="pv-cat-card">
               ${c.image_url ? `
                 <div class="pv-cat-media">
-                  <img src="${c.image_url}" alt="${c.name}" class="pv-cat-img" loading="lazy" onerror="this.parentElement.outerHTML='<div class=\\'pv-cat-icon\\'>🪵</div>'">
+                  <img src="${normalizeImageUrl(c.image_url)}" alt="${c.name}" class="pv-cat-img" loading="lazy" onerror="this.parentElement.outerHTML='<div class=\\'pv-cat-icon\\'>🪵</div>'">
                 </div>
               ` : `
                 <div class="pv-cat-icon">🪵</div>
@@ -739,7 +740,7 @@ router.get('/product/:slug', (req, res) => {
   const galleryImages = db.prepare(`
     SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC
   `).all(product.id);
-  const allImages = [product.primary_image, ...galleryImages.map(g => g.image_url)].filter(Boolean);
+  const allImages = [product.primary_image, ...galleryImages.map(g => g.image_url)].filter(Boolean).map(normalizeImageUrl);
   const uniqueImages = [...new Set(allImages)];
   const primaryDisplay = uniqueImages.length > 0 ? getProductImg(uniqueImages[0], product.name, product.category_slug) : '/hero.jpg';
 
