@@ -1279,6 +1279,13 @@ h1, h2, h3, h4, .pv-heading-serif {
   padding: 4px 4px 14px;
   scrollbar-width: thin;
   scrollbar-color: var(--pv-gold) #F4F1EA;
+  cursor: grab;
+  user-select: none;
+}
+
+.pv-reviews-horizontal-track.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
 }
 
 .pv-reviews-horizontal-track::-webkit-scrollbar {

@@ -406,12 +406,8 @@ router.get('/', (req, res) => {
           </div>
         </div>
 
-        <!-- SociableKIT Google Reviews Embed Widget (Styled Horizontally) -->
-        <div class="pv-google-reviews-wrap">
-          <div class="sk-ww-google-reviews" data-embed-id="25722235"></div>
-          <script src="https://widgets.sociablekit.com/google-reviews/widget.js" defer></script>
-          <script src="/js/reviews-cleaner.js" defer></script>
-        </div>
+        <!-- Swipable Google Reviews Carousel Script -->
+        <script src="/js/reviews-cleaner.js" defer></script>
       </div>
     </section>
 
