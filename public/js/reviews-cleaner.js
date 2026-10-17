@@ -74,17 +74,74 @@
     }
   }
 
+  // Expose global review scroller for navigation buttons
+  window.scrollReviews = function(direction) {
+    var track = document.getElementById('pv-reviews-track');
+    if (!track) {
+      track = document.querySelector('.pv-reviews-horizontal-track') || document.querySelector('.pv-google-reviews-wrap');
+    }
+    if (track) {
+      var scrollAmount = (track.clientWidth > 600 ? 340 : 290) * direction;
+      track.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  // Enable drag-to-scroll on desktop mouse devices for natural swiping
+  function initDragScroll() {
+    var track = document.getElementById('pv-reviews-track');
+    if (!track || track._pvDragInit) return;
+    track._pvDragInit = true;
+
+    var isDown = false;
+    var startX;
+    var scrollLeft;
+
+    track.addEventListener('mousedown', function(e) {
+      isDown = true;
+      track.style.cursor = 'grabbing';
+      startX = e.pageX - track.offsetLeft;
+      scrollLeft = track.scrollLeft;
+    });
+
+    track.addEventListener('mouseleave', function() {
+      isDown = false;
+      track.style.cursor = 'grab';
+    });
+
+    track.addEventListener('mouseup', function() {
+      isDown = false;
+      track.style.cursor = 'grab';
+    });
+
+    track.addEventListener('mousemove', function(e) {
+      if (!isDown) return;
+      e.preventDefault();
+      var x = e.pageX - track.offsetLeft;
+      var walk = (x - startX) * 1.5;
+      track.scrollLeft = scrollLeft - walk;
+    });
+  }
+
   // Initial sweeps
   cleanBranding();
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', cleanBranding);
+    document.addEventListener('DOMContentLoaded', function() {
+      cleanBranding();
+      initDragScroll();
+    });
+  } else {
+    initDragScroll();
   }
-  window.addEventListener('load', cleanBranding);
+  window.addEventListener('load', function() {
+    cleanBranding();
+    initDragScroll();
+  });
 
   // Periodic sweep for first 8 seconds while widget finishes hydration
   var sweeps = 0;
   var interval = setInterval(function() {
     cleanBranding();
+    initDragScroll();
     sweeps++;
     if (sweeps > 40) clearInterval(interval);
   }, 200);
@@ -96,3 +153,4 @@
     observer.observe(container, { childList: true, subtree: true });
   }
 })();
+

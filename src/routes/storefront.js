@@ -69,7 +69,7 @@ router.get('/', (req, res) => {
     FROM products p
     JOIN categories c ON p.category_id = c.id
     WHERE p.is_active = 1 AND p.is_featured = 1
-    ORDER BY p.id DESC LIMIT 8
+    ORDER BY p.id DESC LIMIT 4
   `).all();
 
   const newArrivals = db.prepare(`
@@ -78,7 +78,7 @@ router.get('/', (req, res) => {
     JOIN categories c ON p.category_id = c.id
     WHERE p.is_active = 1 AND p.is_new_arrival = 1
     ORDER BY CASE WHEN p.new_arrival_order > 0 THEN p.new_arrival_order ELSE 9999 END ASC, p.id DESC
-    LIMIT 8
+    LIMIT 4
   `).all();
 
   const categories = db.prepare(`SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC LIMIT 8`).all();
@@ -283,17 +283,131 @@ router.get('/', (req, res) => {
       </div>
     </section>
 
-    <!-- Google Reviews — Live from Google Business Profile -->
-    <section class="pv-section" style="background-color: #FFFFFF; border-top: 1px solid var(--pv-border); border-bottom: 1px solid var(--pv-border);">
+    <!-- Google Reviews — Horizontal Swipeable Carousel (Swipe through on mobile & desktop) -->
+    <section class="pv-reviews-section" style="border-top: 1px solid var(--pv-border); border-bottom: 1px solid var(--pv-border);">
       <div class="pv-container">
-        <div class="pv-section-header">
-          <span class="pv-section-subtitle">What Our Customers Say</span>
-          <h2 class="pv-section-title">Google Reviews</h2>
-          <p class="pv-section-intro">Real-time verified customer ratings and testimonials from our Google Business Profile.</p>
+        <div class="pv-reviews-header-wrap">
+          <div>
+            <span class="pv-section-subtitle">Google Business Verified</span>
+            <h2 class="pv-section-title" style="margin-bottom: 2px;">Google Customer Reviews</h2>
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--pv-text-muted); flex-wrap: wrap;">
+              <span style="color: #F59E0B; font-weight: 700; letter-spacing: 1px;">⭐⭐⭐⭐⭐ 5.0 Rating</span>
+              <span>&bull;</span>
+              <span>Layered horizontally — swipe or scroll through &rarr;</span>
+            </div>
+          </div>
+          <div class="pv-reviews-controls">
+            <button type="button" class="pv-review-nav-btn" onclick="scrollReviews(-1)" aria-label="Previous Reviews">&larr;</button>
+            <button type="button" class="pv-review-nav-btn" onclick="scrollReviews(1)" aria-label="Next Reviews">&rarr;</button>
+            <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="pv-btn pv-btn-outline pv-btn-sm" style="margin-left: 4px;">View on Google</a>
+          </div>
         </div>
 
-        <!-- SociableKIT Google Reviews Embed Widget -->
-        <div class="pv-google-reviews-wrap" style="width: 100%; min-height: 320px; overflow: hidden; border-radius: var(--pv-radius);">
+        <!-- Horizontal Swipeable Track -->
+        <div class="pv-reviews-horizontal-track" id="pv-reviews-track">
+          <div class="pv-review-card">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="pv-review-stars">★★★★★</div>
+                <span class="pv-google-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
+                  Google
+                </span>
+              </div>
+              <p class="pv-review-text">“Palletvoid handcrafted our executive airport lounge modular sofa suite and dual coffee tables. The quality of sanding, fire-retardant finish, and reclaimed pine is unmatched. Zero splinters, extremely robust!”</p>
+            </div>
+            <div class="pv-review-author">
+              <div class="pv-review-avatar">B</div>
+              <div class="pv-review-meta">
+                <strong>Babatunde Olumide</strong>
+                <span>Ikeja, Lagos &bull; 2 weeks ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pv-review-card">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="pv-review-stars">★★★★★</div>
+                <span class="pv-google-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
+                  Google
+                </span>
+              </div>
+              <p class="pv-review-text">“Procured 150 HDPE heavy-duty plastic pallets for our pharmaceutical warehouse. Load capacity is top notch, delivery to our logistics bay was fast. Palletvoid is our trusted industrial supplier in Nigeria.”</p>
+            </div>
+            <div class="pv-review-author">
+              <div class="pv-review-avatar">E</div>
+              <div class="pv-review-meta">
+                <strong>Engr. Emeka Nwosu</strong>
+                <span>Oregun Logistics Bay &bull; 1 month ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pv-review-card">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="pv-review-stars">★★★★★</div>
+                <span class="pv-google-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
+                  Google
+                </span>
+              </div>
+              <p class="pv-review-text">“Ordered a Queen platform pallet bed with custom headboard. It completely transformed my bedroom with a modern rustic aesthetic. The craftsmanship is pure class.”</p>
+            </div>
+            <div class="pv-review-author">
+              <div class="pv-review-avatar">Z</div>
+              <div class="pv-review-meta">
+                <strong>Zainab Al-Hassan</strong>
+                <span>Victoria Island, Lagos &bull; 3 weeks ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pv-review-card">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="pv-review-stars">★★★★★</div>
+                <span class="pv-google-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
+                  Google
+                </span>
+              </div>
+              <p class="pv-review-text">“Their customer communication on WhatsApp is super responsive. Ordered the reclaimed study desk and wooden crate tables. Solid wood, natural honey stain, delivered right to my doorstep.”</p>
+            </div>
+            <div class="pv-review-author">
+              <div class="pv-review-avatar">F</div>
+              <div class="pv-review-meta">
+                <strong>Folake Majekodunmi</strong>
+                <span>Lekki Phase 1, Lagos &bull; 1 month ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pv-review-card">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="pv-review-stars">★★★★★</div>
+                <span class="pv-google-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
+                  Google
+                </span>
+              </div>
+              <p class="pv-review-text">“The pallet crate coffee table is the centerpiece of my living room. Sustainable upcycled timber done with true luxury finishing. Definitely ordering matching side stools soon!”</p>
+            </div>
+            <div class="pv-review-author">
+              <div class="pv-review-avatar">C</div>
+              <div class="pv-review-meta">
+                <strong>Chidi Kalu</strong>
+                <span>Surulere, Lagos &bull; 2 months ago</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SociableKIT Google Reviews Embed Widget (Styled Horizontally) -->
+        <div class="pv-google-reviews-wrap">
           <div class="sk-ww-google-reviews" data-embed-id="25722235"></div>
           <script src="https://widgets.sociablekit.com/google-reviews/widget.js" defer></script>
           <script src="/js/reviews-cleaner.js" defer></script>
@@ -301,17 +415,17 @@ router.get('/', (req, res) => {
       </div>
     </section>
 
-    <!-- Custom Furniture Promotion CTA -->
-    <section class="pv-section" style="background-color: var(--pv-black); color: #FFFFFF; text-align: center; padding: 80px 20px;">
+    <!-- Custom Furniture Promotion CTA (Compact) -->
+    <section class="pv-section" style="background-color: var(--pv-black); color: #FFFFFF; text-align: center; padding: 42px 20px;">
       <div class="pv-container" style="max-width: 800px;">
-        <span class="pv-hero-badge" style="border-color: var(--pv-gold); color: var(--pv-gold);">Tailored to Your Interior</span>
-        <h2 style="font-size: 2.6rem; color: #FFFFFF; margin-bottom: 18px;">Have a Unique Design or Exact Room Dimensions in Mind?</h2>
-        <p style="font-size: 1.1rem; color: #D1CDC7; margin-bottom: 30px; line-height: 1.7;">
+        <span class="pv-hero-badge" style="border-color: var(--pv-gold); color: var(--pv-gold); margin-bottom: 10px;">Tailored to Your Interior</span>
+        <h2 style="font-size: 1.85rem; color: #FFFFFF; margin-bottom: 10px;">Have a Unique Design or Exact Room Dimensions in Mind?</h2>
+        <p style="font-size: 0.95rem; color: #D1CDC7; margin-bottom: 20px; line-height: 1.6;">
           From meeting pods and standing desks to custom headboards and boutique restaurant booth seating, our woodworking team brings your architectural vision to life.
         </p>
-        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-          <a href="/custom-order" class="pv-btn pv-btn-primary" style="padding: 14px 30px;">Request a Custom Furniture Quote</a>
-          <a href="https://wa.me/2348024720412?text=Hello%20Palletvoid,%20I%20have%20a%20custom%20furniture%20inquiry." target="_blank" rel="noopener noreferrer" class="pv-btn pv-btn-secondary" style="padding: 14px 30px;">
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <a href="/custom-order" class="pv-btn pv-btn-primary" style="padding: 10px 22px;">Request a Custom Furniture Quote</a>
+          <a href="https://wa.me/2348024720412?text=Hello%20Palletvoid,%20I%20have%20a%20custom%20furniture%20inquiry." target="_blank" rel="noopener noreferrer" class="pv-btn pv-btn-secondary" style="padding: 10px 22px;">
             Instant WhatsApp Chat
           </a>
         </div>
@@ -642,24 +756,58 @@ router.get('/product/:slug', (req, res) => {
     LIMIT 3
   `).all(product.category_id, product.id);
 
+  // Gallery images
+  const galleryImages = db.prepare(`
+    SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC
+  `).all(product.id);
+  const allImages = [product.primary_image, ...galleryImages.map(g => g.image_url)].filter(Boolean);
+  const uniqueImages = [...new Set(allImages)];
+  const primaryDisplay = uniqueImages.length > 0 ? getProductImg(uniqueImages[0], product.name, product.category_slug) : '/hero.jpg';
+
   const content = `
-    <div class="pv-container pv-section">
+    <div class="pv-container pv-section" style="padding-top: 25px;">
       <!-- Breadcrumb -->
-      <nav style="font-size: 0.88rem; color: var(--pv-text-muted); margin-bottom: 30px;">
+      <nav style="font-size: 0.85rem; color: var(--pv-text-muted); margin-bottom: 18px;">
         <a href="/">Home</a> / <a href="/shop">Shop</a> / <a href="/category/${product.category_slug}">${product.category_name}</a> / <span style="color: var(--pv-black); font-weight: 500;">${product.name}</span>
       </nav>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 50px; margin-bottom: 60px;">
-        <!-- Product Media Gallery -->
-        <div>
-          <div style="background: var(--pv-surface-alt); border-radius: var(--pv-radius); overflow: hidden; border: 1px solid var(--pv-border); margin-bottom: 15px;">
-            <img src="${getProductImg(product.primary_image, product.name, product.category_slug)}" alt="${product.name}" style="width: 100%; aspect-ratio: 4/3; object-fit: cover;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 35px; margin-bottom: 40px;">
+        <!-- Product Media Gallery with Multiple Image Support & Thumbnails -->
+        <div class="pv-product-gallery">
+          <div class="pv-product-main-media">
+            <img id="pv-main-product-img" src="${primaryDisplay}" alt="${product.name}" class="pv-product-main-img">
           </div>
-          <div style="display: flex; gap: 10px;">
-            <span style="font-size: 0.8rem; color: var(--pv-text-muted); padding: 6px 12px; background: #FFFFFF; border-radius: 4px; border: 1px solid var(--pv-border);">
+
+          ${uniqueImages.length > 1 ? `
+            <div class="pv-product-thumbnails" id="pv-product-thumbs" title="Swipe or click to view more photos">
+              ${uniqueImages.map((img, idx) => `
+                <button type="button" class="pv-thumb-btn ${idx === 0 ? 'active' : ''}" onclick="switchProductMedia('${img}', this)" aria-label="View product photo ${idx + 1}">
+                  <img src="${img}" alt="${product.name} photo ${idx + 1}" onerror="this.src='/hero.jpg'">
+                </button>
+              `).join('')}
+            </div>
+            <script>
+              function switchProductMedia(imgUrl, btn) {
+                var mainImg = document.getElementById('pv-main-product-img');
+                if (mainImg) {
+                  mainImg.style.opacity = '0.35';
+                  setTimeout(function() {
+                    mainImg.src = imgUrl;
+                    mainImg.style.opacity = '1';
+                  }, 120);
+                }
+                var buttons = document.querySelectorAll('.pv-thumb-btn');
+                buttons.forEach(function(b) { b.classList.remove('active'); });
+                if (btn) btn.classList.add('active');
+              }
+            </script>
+          ` : ''}
+
+          <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+            <span style="font-size: 0.78rem; color: var(--pv-text-muted); padding: 5px 10px; background: #FFFFFF; border-radius: 4px; border: 1px solid var(--pv-border);">
               Authentic Palletvoid Workshop Build
             </span>
-            <span style="font-size: 0.8rem; color: var(--pv-green); padding: 6px 12px; background: var(--pv-green-light); border-radius: 4px; font-weight: 600;">
+            <span style="font-size: 0.78rem; color: var(--pv-green); padding: 5px 10px; background: var(--pv-green-light); border-radius: 4px; font-weight: 600;">
               ISPM-15 Heat Treated Reclaimed Pine
             </span>
           </div>

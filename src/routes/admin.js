@@ -4,10 +4,43 @@
  */
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { db } from '../database.js';
 import { markOrderAsPaid, restoreInventory } from '../services/orderService.js';
 import { renderLayout, formatNaira } from '../views/layout.js';
 import { setFlash } from '../server.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, '../../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer Storage Configuration
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, 30);
+    cb(null, `pv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}_${base}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit per image
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|webp|gif|avif/i;
+    if (allowed.test(path.extname(file.originalname).toLowerCase()) && allowed.test(file.mimetype)) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files (JPG, PNG, WebP, GIF, AVIF) are accepted.'));
+  }
+});
 
 const router = express.Router();
 
@@ -465,7 +498,7 @@ router.get('/products', (req, res) => {
         <button type="button" onclick="document.getElementById('new-product-form').style.display='none'" style="background: none; border: none; font-size: 1.3rem; cursor: pointer;">&times;</button>
       </div>
 
-      <form action="/admin/products/create" method="POST">
+      <form action="/admin/products/create" method="POST" enctype="multipart/form-data">
         <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px;">
           <div class="pv-form-group">
             <label class="pv-form-label">Product Name *</label>
@@ -528,9 +561,33 @@ router.get('/products', (req, res) => {
           </div>
         </div>
 
-        <div class="pv-form-group">
-          <label class="pv-form-label">Primary Image URL or Local Path</label>
-          <input type="text" name="primary_image" class="pv-input" placeholder="e.g. /hero.jpg or /images/products/plastic-pallet-main.webp or web URL">
+        <!-- Product Image & Multiple Gallery Photos Section -->
+        <div style="background: #FAF8F5; border: 1px solid var(--pv-border); border-radius: var(--pv-radius); padding: 18px 20px; margin-bottom: 20px;">
+          <h4 style="margin-top: 0; margin-bottom: 12px; font-size: 1.05rem;">Product Images &amp; Multi-Photo Gallery</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+            <div class="pv-form-group" style="margin-bottom: 0;">
+              <label class="pv-form-label">Primary Cover Photo (URL or Local Path)</label>
+              <input type="text" name="primary_image" class="pv-input" placeholder="e.g. /hero.jpg or https://...">
+            </div>
+            <div class="pv-form-group" style="margin-bottom: 0;">
+              <label class="pv-form-label">Or Upload Primary Cover Photo</label>
+              <input type="file" name="primary_image_file" accept="image/*" class="pv-input" style="padding: 7px 10px;">
+            </div>
+          </div>
+
+          <div style="border-top: 1px dashed var(--pv-border); padding-top: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div class="pv-form-group" style="margin-bottom: 0;">
+                <label class="pv-form-label"><strong>Upload Multiple Gallery Photos</strong></label>
+                <input type="file" name="gallery_images" multiple accept="image/*" class="pv-input" style="padding: 7px 10px;">
+                <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Select multiple photos to create a swipeable product gallery</small>
+              </div>
+              <div class="pv-form-group" style="margin-bottom: 0;">
+                <label class="pv-form-label">Or Paste Multiple Image URLs (one per line)</label>
+                <textarea name="additional_image_urls" class="pv-textarea" rows="2" placeholder="https://...&#10;https://..."></textarea>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="pv-form-group">
@@ -655,6 +712,7 @@ router.get('/products/:id/edit', (req, res) => {
   }
 
   const categories = db.prepare('SELECT * FROM categories WHERE is_active = 1').all();
+  const galleryImages = db.prepare('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC').all(productId);
 
   const priceNaira = product.price_kobo > 100 ? (product.price_kobo / 100) : '';
   const salePriceNaira = product.sale_price_kobo ? (product.sale_price_kobo / 100) : '';
@@ -663,11 +721,11 @@ router.get('/products/:id/edit', (req, res) => {
     <div style="margin-bottom: 25px;">
       <a href="/admin/products" style="color: var(--pv-gold); text-decoration: none; font-weight: 600;">&larr; Back to Product Catalog</a>
       <h1 style="font-size: 2rem; margin-top: 10px;">Edit Product: ${product.name}</h1>
-      <p style="color: var(--pv-text-muted);">Configure pricing, tags, landing page new arrival order, and specifications.</p>
+      <p style="color: var(--pv-text-muted);">Configure pricing, tags, multiple product photos, and specifications.</p>
     </div>
 
     <div style="background: #FFFFFF; border: 1px solid var(--pv-border); border-radius: var(--pv-radius); padding: 35px; box-shadow: var(--pv-shadow-sm);">
-      <form action="/admin/products/${product.id}/edit" method="POST">
+      <form action="/admin/products/${product.id}/edit" method="POST" enctype="multipart/form-data">
         <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px;">
           <div class="pv-form-group">
             <label class="pv-form-label">Product Name *</label>
@@ -730,24 +788,81 @@ router.get('/products/:id/edit', (req, res) => {
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; align-items: flex-start;">
-          <div class="pv-form-group">
-            <label class="pv-form-label">Primary Image URL or Local Path</label>
-            <input type="text" name="primary_image" id="product_primary_image_input" class="pv-input" value="${product.primary_image || ''}" placeholder="e.g. /hero.jpg or image URL" oninput="updateProductPreview(this.value)">
-            <div style="margin-top: 10px; display: flex; align-items: center; gap: 12px;">
-              <div id="product_preview_wrap" style="width: 70px; height: 70px; border-radius: 4px; overflow: hidden; border: 1px solid var(--pv-border); background: #FAFAFA; display: flex; align-items: center; justify-content: center;">
+        <!-- Primary Cover Photo Section -->
+        <div style="background: #FAF8F5; border: 1px solid var(--pv-border); border-radius: var(--pv-radius); padding: 22px; margin-bottom: 22px;">
+          <h4 style="margin-top: 0; margin-bottom: 12px; font-size: 1.1rem; color: var(--pv-black);">Primary Cover Photo</h4>
+          <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 20px; align-items: flex-start;">
+            <div class="pv-form-group" style="margin-bottom: 0;">
+              <label class="pv-form-label">Primary Image URL or Local Path</label>
+              <input type="text" name="primary_image" id="product_primary_image_input" class="pv-input" value="${product.primary_image || ''}" placeholder="e.g. /hero.jpg or image URL" oninput="updateProductPreview(this.value)">
+              <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Shown as the main card image across the storefront</small>
+            </div>
+            <div class="pv-form-group" style="margin-bottom: 0;">
+              <label class="pv-form-label">Or Upload New Cover Photo</label>
+              <input type="file" name="primary_image_file" accept="image/*" class="pv-input" style="padding: 7px 10px;">
+              <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Replaces primary cover with a file from your device</small>
+            </div>
+            <div>
+              <label class="pv-form-label">Live Preview</label>
+              <div id="product_preview_wrap" style="width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 2px solid var(--pv-border); background: #FFFFFF; display: flex; align-items: center; justify-content: center;">
                 <img id="product_preview_img" src="${product.primary_image || '/images/products/plastic-pallet-main.webp'}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/hero.jpg'">
               </div>
-              <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Live preview of product display image</small>
             </div>
-            <script>
-              function updateProductPreview(url) {
-                var img = document.getElementById('product_preview_img');
-                if (img) img.src = url.trim() || '/hero.jpg';
-              }
-            </script>
           </div>
-          <div class="pv-form-group">
+          <script>
+            function updateProductPreview(url) {
+              var img = document.getElementById('product_preview_img');
+              if (img) img.src = url.trim() || '/hero.jpg';
+            }
+          </script>
+        </div>
+
+        <!-- Additional Multi-Image Gallery Manager -->
+        <div style="background: #FFFFFF; border: 1px solid var(--pv-border); border-radius: var(--pv-radius); padding: 22px; margin-bottom: 22px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h4 style="margin: 0; font-size: 1.1rem; color: var(--pv-black);">Multiple Product Gallery Photos (${galleryImages.length} additional)</h4>
+              <p style="margin: 3px 0 0; font-size: 0.85rem; color: var(--pv-text-muted);">These images appear as interactive swipeable thumbnails on the product page.</p>
+            </div>
+          </div>
+
+          ${galleryImages.length > 0 ? `
+            <div class="pv-admin-gallery-grid" style="margin-bottom: 20px;">
+              ${galleryImages.map((gImg) => `
+                <div class="pv-admin-gallery-item">
+                  <img src="${gImg.image_url}" alt="Gallery photo" onerror="this.src='/hero.jpg'">
+                  <div class="pv-admin-gallery-actions">
+                    <button type="submit" formaction="/admin/products/${product.id}/images/${gImg.id}/set-primary" formmethod="POST" class="pv-btn pv-btn-outline pv-btn-sm" style="padding: 2px 6px; font-size: 0.72rem;" title="Make this image the main product cover">
+                      Make Cover
+                    </button>
+                    <button type="submit" formaction="/admin/products/${product.id}/images/${gImg.id}/delete" formmethod="POST" class="pv-btn pv-btn-danger pv-btn-sm" style="padding: 2px 6px; font-size: 0.72rem;" onclick="return confirm('Remove this image from gallery?');" title="Delete image">
+                      &times; Delete
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : `
+            <p style="font-size: 0.88rem; color: var(--pv-text-muted); font-style: italic; margin-bottom: 15px;">No additional gallery photos yet. Upload photos below to give customers multiple views.</p>
+          `}
+
+          <div style="border-top: 1px dashed var(--pv-border); padding-top: 16px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div class="pv-form-group" style="margin-bottom: 0;">
+                <label class="pv-form-label"><strong>+ Upload Multiple New Photos</strong></label>
+                <input type="file" name="gallery_images" multiple accept="image/*" class="pv-input" style="padding: 7px 10px;">
+                <small style="color: var(--pv-text-muted); font-size: 0.78rem;">Hold Ctrl or shift-select to upload multiple photos at once</small>
+              </div>
+              <div class="pv-form-group" style="margin-bottom: 0;">
+                <label class="pv-form-label"><strong>Or Paste Multiple Image URLs</strong> (one per line)</label>
+                <textarea name="additional_image_urls" class="pv-textarea" rows="2" placeholder="https://...&#10;https://..."></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+          <div class="pv-form-group" style="margin-bottom: 0;">
             <label class="pv-form-label">Featured on Homepage?</label>
             <div style="padding-top: 8px;">
               <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -756,7 +871,7 @@ router.get('/products/:id/edit', (req, res) => {
               </label>
             </div>
           </div>
-          <div class="pv-form-group">
+          <div class="pv-form-group" style="margin-bottom: 0;">
             <label class="pv-form-label">Active Status</label>
             <div style="padding-top: 8px;">
               <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -812,17 +927,25 @@ router.get('/products/:id/edit', (req, res) => {
   res.send(renderAdminLayout(`Edit ${product.name}`, content, req));
 });
 
-// Action: Edit Product (POST)
-router.post('/products/:id/edit', (req, res) => {
+// Action: Edit Product (POST with Multer Support for Multiple Images)
+router.post('/products/:id/edit', upload.fields([
+  { name: 'primary_image_file', maxCount: 1 },
+  { name: 'gallery_images', maxCount: 15 }
+]), (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const {
     name, sku, category_id, price, sale_price, stock_quantity, product_type,
     tags, is_new_arrival, new_arrival_order, is_featured, is_active,
-    primary_image, short_description, description, dimensions, material, finish,
-    is_made_to_order
+    primary_image, additional_image_urls, short_description, description,
+    dimensions, material, finish, is_made_to_order
   } = req.body;
 
   try {
+    let finalPrimaryImage = primary_image ? primary_image.trim() : null;
+    if (req.files && req.files.primary_image_file && req.files.primary_image_file[0]) {
+      finalPrimaryImage = `/uploads/${req.files.primary_image_file[0].filename}`;
+    }
+
     const rawPrice = parseFloat(price);
     const priceKobo = isNaN(rawPrice) || rawPrice <= 0 ? 100 : Math.round(rawPrice * 100);
     const salePriceKobo = sale_price && parseFloat(sale_price) > 0 ? Math.round(parseFloat(sale_price) * 100) : null;
@@ -860,17 +983,91 @@ router.post('/products/:id/edit', (req, res) => {
       name.trim(), sku.trim(), parseInt(category_id, 10), product_type || 'furniture',
       priceKobo, salePriceKobo, stockQty, isMadeToOrder,
       tags ? tags.trim() : null, isNewArrival, arrivalOrder, isFeatured, isActive,
-      primary_image ? primary_image.trim() : null,
+      finalPrimaryImage,
       short_description || '', description || '', dimensions || '', material || '', finish || '',
       productId
     );
 
-    setFlash(res, 'success', `Product "${name}" updated successfully.`);
+    // 1. Process uploaded gallery files
+    if (req.files && req.files.gallery_images && req.files.gallery_images.length > 0) {
+      const insertImg = db.prepare(`
+        INSERT INTO product_images (product_id, image_url, alt_text, sort_order)
+        VALUES (?, ?, ?, ?)
+      `);
+      req.files.gallery_images.forEach((file, idx) => {
+        const fileUrl = `/uploads/${file.filename}`;
+        insertImg.run(productId, fileUrl, name.trim(), idx + 1);
+      });
+    }
+
+    // 2. Process pasted additional image URLs
+    if (additional_image_urls && typeof additional_image_urls === 'string') {
+      const urls = additional_image_urls.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
+      if (urls.length > 0) {
+        const insertImg = db.prepare(`
+          INSERT INTO product_images (product_id, image_url, alt_text, sort_order)
+          VALUES (?, ?, ?, ?)
+        `);
+        urls.forEach((url, idx) => {
+          insertImg.run(productId, url, name.trim(), idx + 10);
+        });
+      }
+    }
+
+    setFlash(res, 'success', `Product "${name}" and image gallery updated successfully.`);
   } catch (err) {
     setFlash(res, 'error', `Failed to update product: ${err.message}`);
   }
 
-  res.redirect('/admin/products');
+  res.redirect(`/admin/products/${productId}/edit`);
+});
+
+// Action: Delete a gallery image
+router.post('/products/:productId/images/:imageId/delete', (req, res) => {
+  const productId = parseInt(req.params.productId, 10);
+  const imageId = parseInt(req.params.imageId, 10);
+
+  try {
+    const img = db.prepare('SELECT * FROM product_images WHERE id = ? AND product_id = ?').get(imageId, productId);
+    if (img) {
+      db.prepare('DELETE FROM product_images WHERE id = ?').run(imageId);
+      if (img.image_url && img.image_url.startsWith('/uploads/')) {
+        const filePath = path.resolve(__dirname, '../../uploads', path.basename(img.image_url));
+        if (fs.existsSync(filePath)) {
+          try { fs.unlinkSync(filePath); } catch (_) {}
+        }
+      }
+      setFlash(res, 'success', 'Gallery image deleted.');
+    }
+  } catch (err) {
+    setFlash(res, 'error', err.message);
+  }
+
+  res.redirect(`/admin/products/${productId}/edit`);
+});
+
+// Action: Set gallery image as Primary image
+router.post('/products/:productId/images/:imageId/set-primary', (req, res) => {
+  const productId = parseInt(req.params.productId, 10);
+  const imageId = parseInt(req.params.imageId, 10);
+
+  try {
+    const img = db.prepare('SELECT * FROM product_images WHERE id = ? AND product_id = ?').get(imageId, productId);
+    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId);
+
+    if (img && product) {
+      const oldPrimary = product.primary_image;
+      db.prepare('UPDATE products SET primary_image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(img.image_url, productId);
+      if (oldPrimary && oldPrimary !== img.image_url) {
+        db.prepare('UPDATE product_images SET image_url = ? WHERE id = ?').run(oldPrimary, imageId);
+      }
+      setFlash(res, 'success', 'Primary cover photo updated.');
+    }
+  } catch (err) {
+    setFlash(res, 'error', err.message);
+  }
+
+  res.redirect(`/admin/products/${productId}/edit`);
 });
 
 // Action: Quick Toggle/Reorder New Arrival
@@ -895,15 +1092,23 @@ router.post('/products/:id/quick-arrival', (req, res) => {
   res.redirect('/admin/products');
 });
 
-// Action: Create Product
-router.post('/products/create', (req, res) => {
+// Action: Create Product (with Multer Multiple Images)
+router.post('/products/create', upload.fields([
+  { name: 'primary_image_file', maxCount: 1 },
+  { name: 'gallery_images', maxCount: 15 }
+]), (req, res) => {
   const {
     name, sku, category_id, price, sale_price, stock_quantity, product_type,
-    tags, is_new_arrival, new_arrival_order, primary_image,
+    tags, is_new_arrival, new_arrival_order, primary_image, additional_image_urls,
     short_description, description, dimensions, material, finish, is_made_to_order
   } = req.body;
 
   try {
+    let finalPrimaryImage = primary_image ? primary_image.trim() : null;
+    if (req.files && req.files.primary_image_file && req.files.primary_image_file[0]) {
+      finalPrimaryImage = `/uploads/${req.files.primary_image_file[0].filename}`;
+    }
+
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     const rawPrice = parseFloat(price);
     const priceKobo = isNaN(rawPrice) || rawPrice <= 0 ? 100 : Math.round(rawPrice * 100);
@@ -912,7 +1117,7 @@ router.post('/products/create', (req, res) => {
     const arrivalOrder = parseInt(new_arrival_order, 10) || 0;
     const isMadeToOrder = is_made_to_order === '1' ? 1 : 0;
 
-    db.prepare(`
+    const result = db.prepare(`
       INSERT INTO products (
         sku, name, slug, category_id, product_type, short_description, description,
         price_kobo, sale_price_kobo, stock_quantity, is_made_to_order,
@@ -923,11 +1128,38 @@ router.post('/products/create', (req, res) => {
       sku.trim(), name.trim(), slug, parseInt(category_id, 10), product_type || 'furniture',
       short_description || '', description || '', priceKobo, salePriceKobo,
       parseInt(stock_quantity, 10) || 0, isMadeToOrder,
-      tags ? tags.trim() : null, isNewArrival, arrivalOrder, primary_image ? primary_image.trim() : null,
+      tags ? tags.trim() : null, isNewArrival, arrivalOrder, finalPrimaryImage,
       dimensions || '', material || '', finish || ''
     );
 
-    setFlash(res, 'success', `Product "${name}" created successfully.`);
+    const productId = result.lastInsertRowid;
+
+    // 1. Process uploaded gallery files
+    if (req.files && req.files.gallery_images && req.files.gallery_images.length > 0) {
+      const insertImg = db.prepare(`
+        INSERT INTO product_images (product_id, image_url, alt_text, sort_order)
+        VALUES (?, ?, ?, ?)
+      `);
+      req.files.gallery_images.forEach((file, idx) => {
+        insertImg.run(productId, `/uploads/${file.filename}`, name.trim(), idx + 1);
+      });
+    }
+
+    // 2. Process pasted additional image URLs
+    if (additional_image_urls && typeof additional_image_urls === 'string') {
+      const urls = additional_image_urls.split(/[\r\n,]+/).map(u => u.trim()).filter(Boolean);
+      if (urls.length > 0) {
+        const insertImg = db.prepare(`
+          INSERT INTO product_images (product_id, image_url, alt_text, sort_order)
+          VALUES (?, ?, ?, ?)
+        `);
+        urls.forEach((url, idx) => {
+          insertImg.run(productId, url, name.trim(), idx + 10);
+        });
+      }
+    }
+
+    setFlash(res, 'success', `Product "${name}" created successfully with image gallery.`);
   } catch (err) {
     setFlash(res, 'error', err.message);
   }

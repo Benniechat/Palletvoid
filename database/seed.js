@@ -593,6 +593,50 @@ sampleProducts.forEach(prod => {
 });
 console.log(`[Seed] ${sampleProducts.length} verified products seeded.`);
 
+// 3b. Seed Multiple Product Gallery Images
+const sampleGallery = [
+  {
+    sku: 'PV-PP-101',
+    images: [
+      `${JIJI}/plastic-pallet-2.webp`,
+      `${JIJI}/plastic-pallet-3.webp`,
+      `${JIJI}/plastic-pallet-4.webp`
+    ]
+  },
+  {
+    sku: 'PV-SF-001',
+    images: [
+      `${WP}/04/pbz_crate_coffee_table_natural_002_1000x-01.jpeg`,
+      `${WP}/09/img_20210917_060738.jpg`
+    ]
+  },
+  {
+    sku: 'PV-BED-002',
+    images: [
+      `${WP}/09/img_20210917_060758.jpg`,
+      `${WP}/12/img_20211126_130852_364.jpg`
+    ]
+  }
+];
+
+const insertGalleryImage = db.prepare(`
+  INSERT INTO product_images (product_id, image_url, alt_text, sort_order)
+  SELECT id, ?, name, ? FROM products WHERE sku = ?
+`);
+
+sampleGallery.forEach(item => {
+  const pRow = db.prepare('SELECT id FROM products WHERE sku = ?').get(item.sku);
+  if (pRow) {
+    const existing = db.prepare('SELECT count(*) as count FROM product_images WHERE product_id = ?').get(pRow.id);
+    if (existing.count === 0) {
+      item.images.forEach((imgUrl, idx) => {
+        insertGalleryImage.run(imgUrl, idx + 1, item.sku);
+      });
+    }
+  }
+});
+console.log('[Seed] Multi-image product galleries verified/seeded.');
+
 // 4. Seed Shipping Zones in Nigeria
 const shippingZones = [
   {
