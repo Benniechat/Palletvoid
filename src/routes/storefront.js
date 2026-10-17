@@ -284,7 +284,7 @@ router.get('/', (req, res) => {
     </section>
 
     <!-- Google Reviews — Horizontal Swipeable Carousel (Swipe through on mobile & desktop) -->
-    <section class="pv-reviews-section" style="border-top: 1px solid var(--pv-border); border-bottom: 1px solid var(--pv-border);">
+    <section class="pv-reviews-section" style="border-top: 1px solid var(--pv-border);">
       <div class="pv-container">
         <div class="pv-reviews-header-wrap">
           <div>
@@ -408,23 +408,6 @@ router.get('/', (req, res) => {
 
         <!-- Swipable Google Reviews Carousel Script -->
         <script src="/js/reviews-cleaner.js" defer></script>
-      </div>
-    </section>
-
-    <!-- Custom Furniture Promotion CTA (Compact) -->
-    <section class="pv-section" style="background-color: var(--pv-black); color: #FFFFFF; text-align: center; padding: 42px 20px;">
-      <div class="pv-container" style="max-width: 800px;">
-        <span class="pv-hero-badge" style="border-color: var(--pv-gold); color: var(--pv-gold); margin-bottom: 10px;">Tailored to Your Interior</span>
-        <h2 style="font-size: 1.85rem; color: #FFFFFF; margin-bottom: 10px;">Have a Unique Design or Exact Room Dimensions in Mind?</h2>
-        <p style="font-size: 0.95rem; color: #D1CDC7; margin-bottom: 20px; line-height: 1.6;">
-          From meeting pods and standing desks to custom headboards and boutique restaurant booth seating, our woodworking team brings your architectural vision to life.
-        </p>
-        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <a href="/custom-order" class="pv-btn pv-btn-primary" style="padding: 10px 22px;">Request a Custom Furniture Quote</a>
-          <a href="https://wa.me/2348024720412?text=Hello%20Palletvoid,%20I%20have%20a%20custom%20furniture%20inquiry." target="_blank" rel="noopener noreferrer" class="pv-btn pv-btn-secondary" style="padding: 10px 22px;">
-            Instant WhatsApp Chat
-          </a>
-        </div>
       </div>
     </section>
   `;

@@ -711,8 +711,8 @@ h1, h2, h3, h4, .pv-heading-serif {
 .pv-footer {
   background-color: var(--pv-black);
   color: #E0DDD7;
-  padding: 80px 0 30px;
-  margin-top: 60px;
+  padding: 55px 0 30px;
+  margin-top: 0;
 }
 
 .pv-footer-grid {
@@ -1227,7 +1227,7 @@ h1, h2, h3, h4, .pv-heading-serif {
    Google Reviews Section — Horizontal Swipeable Carousel Layout
    ========================================================================== */
 .pv-reviews-section {
-  padding: 34px 0;
+  padding: 38px 0 42px;
   background-color: #FFFFFF;
 }
 
